@@ -7,7 +7,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import Model.Food
-import Model.FoodSource
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -58,11 +57,16 @@ import androidx.compose.foundation.layout.size
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import com.example.praktiktam.network.RetrofitClient
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import androidx.compose.ui.text.style.TextAlign
 import com.example.praktiktam.ui.theme.PraktiktamTheme
 
 class MainActivity : ComponentActivity() {
@@ -80,17 +84,21 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation(navController: NavHostController) {
+    var foods by remember { mutableStateOf<List<Food>>(emptyList()) }
+
     NavHost(
         navController = navController,
         startDestination = "home"
     ) {
         composable("home") {
-            DaftarMakananScreen(navController)
+            DaftarMakananScreen(navController) { fetchedFoods ->
+                foods = fetchedFoods
+            }
         }
 
         composable("detail/{nama}") { backStackEntry ->
             val nama = backStackEntry.arguments?.getString("nama")
-            val food = FoodSource.dummyFood.find {
+            val food = foods.find {
                 it.nama == nama
             }
             if (food != null) {
@@ -101,7 +109,59 @@ fun AppNavigation(navController: NavHostController) {
 }
 
 @Composable
-fun DaftarMakananScreen(navController: NavController) {
+fun DaftarMakananScreen(navController: NavController, onFoodsLoaded: (List<Food>) -> Unit = {}) {
+    var foods by remember { mutableStateOf<List<Food>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    // state untuk mendeteksi error
+    var isError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            foods = RetrofitClient.instance.getFoods()
+            onFoodsLoaded(foods)
+            isLoading = false
+            isError = false //
+        } catch (e: Exception) {
+            isLoading = false
+            isError = true //  state menjadi true jika internet mati/gagal
+        }
+    }
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    } else if (isError || foods.isEmpty()) {
+        // tampilan saat error (Internet mati)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Gagal Memuat Data",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Red
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Pastikan koneksi internet Anda menyala",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        return
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -120,7 +180,7 @@ fun DaftarMakananScreen(navController: NavController) {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(FoodSource.dummyFood) { food ->
+                items(foods) { food ->
                     FoodRowItem(food = food, navController = navController)
                 }
             }
@@ -135,7 +195,7 @@ fun DaftarMakananScreen(navController: NavController) {
             )
         }
 
-        items(FoodSource.dummyFood) { food ->
+        items(foods) { food ->
             FoodItem(food = food, navController = navController)
         }
     }
@@ -159,12 +219,16 @@ fun DetailScreen(food: Food, navController: NavController, isFullScreen: Boolean
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Box {
-                    Image(
-                        painter = painterResource(id = food.ImageRes),
+                    // Menggunakan Coil AsyncImage
+                    AsyncImage(
+                        model = food.imageUrl,
                         contentDescription = food.nama,
+                        placeholder = painterResource(id = R.drawable.rendang),
+                        error = painterResource(id = R.drawable.sate),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp),
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(12.dp)),
                         contentScale = ContentScale.Crop
                     )
 
@@ -272,12 +336,17 @@ fun FoodRowItem(food: Food, navController: NavController) {
                 navController.navigate("detail/${food.nama}")
             },
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column {
-            Image(
-                painter = painterResource(id = food.ImageRes),
+            AsyncImage(
+                model = food.imageUrl,
                 contentDescription = food.nama,
+                placeholder = painterResource(id = R.drawable.rendang), // Gambar saat loading
+                error = painterResource(id = R.drawable.sate), // Gambar jika URL mati/gagal
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(100.dp),
