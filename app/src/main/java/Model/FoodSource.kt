@@ -1,10 +1,10 @@
 package Model
-import com.example.praktiktam.R
+
+import android.content.Context
 
 object FoodSource {
-    val dummyFood = listOf(
-        Food("Sate", "Madura", 10000, R.drawable.sate) ,
-        Food("Nasi Goreng", "Betawi", 10000, R.drawable.nasgor),
-        Food("Rendang", "Padang", 15000, R.drawable.rendang),
-    )
+    // Fungsi untuk mencari ID drawable berdasarkan nama file (String) dari API
+    fun getResourceId(context: Context, imageName: String): Int {
+        return context.resources.getIdentifier(imageName, "drawable", context.packageName)
+    }
 }

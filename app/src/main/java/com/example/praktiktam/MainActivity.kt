@@ -58,6 +58,9 @@ import androidx.compose.foundation.layout.size
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import com.example.praktiktam.network.RetrofitClient
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -80,17 +83,21 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation(navController: NavHostController) {
+    var foods by remember { mutableStateOf<List<Food>>(emptyList()) }
+
     NavHost(
         navController = navController,
         startDestination = "home"
     ) {
         composable("home") {
-            DaftarMakananScreen(navController)
+            DaftarMakananScreen(navController) { fetchedFoods ->
+                foods = fetchedFoods
+            }
         }
 
         composable("detail/{nama}") { backStackEntry ->
             val nama = backStackEntry.arguments?.getString("nama")
-            val food = FoodSource.dummyFood.find {
+            val food = foods.find {
                 it.nama == nama
             }
             if (food != null) {
@@ -101,7 +108,27 @@ fun AppNavigation(navController: NavHostController) {
 }
 
 @Composable
-fun DaftarMakananScreen(navController: NavController) {
+fun DaftarMakananScreen(navController: NavController, onFoodsLoaded: (List<Food>) -> Unit = {}) {
+    var foods by remember { mutableStateOf<List<Food>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        try {
+            foods = RetrofitClient.instance.getFoods()
+            onFoodsLoaded(foods)
+            isLoading = false
+        } catch (e: Exception) {
+            isLoading = false
+        }
+    }
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -120,7 +147,7 @@ fun DaftarMakananScreen(navController: NavController) {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(FoodSource.dummyFood) { food ->
+                items(foods) { food ->
                     FoodRowItem(food = food, navController = navController)
                 }
             }
@@ -135,7 +162,7 @@ fun DaftarMakananScreen(navController: NavController) {
             )
         }
 
-        items(FoodSource.dummyFood) { food ->
+        items(foods) { food ->
             FoodItem(food = food, navController = navController)
         }
     }
@@ -147,6 +174,10 @@ fun DetailScreen(food: Food, navController: NavController, isFullScreen: Boolean
     var isLoading by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val context = LocalContext.current
+    val resId = FoodSource.getResourceId(context, food.imageName)
+    val imageRes = if (resId != 0) resId else R.drawable.rendang
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Card(
@@ -160,7 +191,7 @@ fun DetailScreen(food: Food, navController: NavController, isFullScreen: Boolean
             Column(modifier = Modifier.fillMaxWidth()) {
                 Box {
                     Image(
-                        painter = painterResource(id = food.ImageRes),
+                        painter = painterResource(id = imageRes),
                         contentDescription = food.nama,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -265,6 +296,10 @@ fun DetailScreen(food: Food, navController: NavController, isFullScreen: Boolean
 
 @Composable
 fun FoodRowItem(food: Food, navController: NavController) {
+    val context = LocalContext.current
+    val resId = FoodSource.getResourceId(context, food.imageName)
+    val imageRes = if (resId != 0) resId else R.drawable.rendang
+
     Card(
         modifier = Modifier
             .width(160.dp)
@@ -276,7 +311,7 @@ fun FoodRowItem(food: Food, navController: NavController) {
     ) {
         Column {
             Image(
-                painter = painterResource(id = food.ImageRes),
+                painter = painterResource(id = imageRes),
                 contentDescription = food.nama,
                 modifier = Modifier
                     .fillMaxWidth()
