@@ -6,7 +6,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
-import Model.Food
+import com.example.praktiktam.data.model.Food
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -59,7 +59,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
-import com.example.praktiktam.network.RetrofitClient
+import com.example.praktiktam.data.repository.FoodRepository
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -115,16 +115,14 @@ fun DaftarMakananScreen(navController: NavController, onFoodsLoaded: (List<Food>
     // state untuk mendeteksi error
     var isError by remember { mutableStateOf(false) }
 
+    val repository = remember { FoodRepository() }
+
     LaunchedEffect(Unit) {
-        try {
-            foods = RetrofitClient.instance.getFoods()
-            onFoodsLoaded(foods)
-            isLoading = false
-            isError = false //
-        } catch (e: Exception) {
-            isLoading = false
-            isError = true //  state menjadi true jika internet mati/gagal
-        }
+        isLoading = true
+        foods = repository.getFoods()
+        onFoodsLoaded(foods)
+        isLoading = false
+        isError = foods.isEmpty()
     }
 
     if (isLoading) {

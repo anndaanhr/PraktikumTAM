@@ -1,6 +1,6 @@
-package com.example.praktiktam.network
+package com.example.praktiktam.data.api
 
-import Model.Food
+import com.example.praktiktam.data.model.Food
 import retrofit2.http.GET
 
 interface ApiService {
